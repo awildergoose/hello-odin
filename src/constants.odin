@@ -1,5 +1,6 @@
 package main
 
+import "core:math/linalg/glsl"
 SCREEN_WIDTH: i32 = 800
 SCREEN_HEIGHT: i32 = 600
 WINDOW_TITLE: cstring = "Learn OpenGL"
@@ -58,4 +59,16 @@ vertices := [?]f32{
 //     1.0, 0.0,  // lower-right corner
 //     0.5, 1.0   // top-center corner
 // }
+cubePositions := [?]glsl.vec3{
+    glsl.vec3{ 0.0,  0.0,  0.0 },
+    glsl.vec3{ 2.0,  5.0, -15.0 },
+    glsl.vec3{-1.5, -2.2, -2.5 },
+    glsl.vec3{-3.8, -2.0, -12.3 },
+    glsl.vec3{ 2.4, -0.4, -3.5 },
+    glsl.vec3{-1.7,  3.0, -7.5 },
+    glsl.vec3{ 1.3, -2.0, -2.5 },
+    glsl.vec3{ 1.5,  2.0, -2.5 },
+    glsl.vec3{ 1.5,  0.2, -1.5 },
+    glsl.vec3{-1.3,  1.0, -1.5 },
+}
 // odinfmt: enable

@@ -258,20 +258,29 @@ main :: proc() {
 		texture_use_slotted(&texture2, 1)
 
 		// MVP
-		shader_set_mat4(&lightingShader, "model", glsl.mat4(1.0))
 		shader_set_mat4(&lightingShader, "view", view)
 		shader_set_mat4(&lightingShader, "projection", projection)
 		shader_set_vec3(&lightingShader, "viewPos", state.camera.pos)
 
 		shader_set_float(&lightingShader, "material.shininess", 32.0)
 
-		shader_set_vec3(&lightingShader, "light.position", state.lightPos)
+		shader_set_vec3(&lightingShader, "light.direction", glsl.vec3{-0.2, -1.0, -0.3})
 		shader_set_vec3(&lightingShader, "light.ambient", glsl.vec3{0.2, 0.2, 0.2})
 		shader_set_vec3(&lightingShader, "light.diffuse", glsl.vec3{0.5, 0.5, 0.5})
 		shader_set_vec3(&lightingShader, "light.specular", glsl.vec3{1.0, 1.0, 1.0})
 
 		gl.BindVertexArray(cubeVAO)
-		gl.DrawArrays(gl.TRIANGLES, 0, 36)
+
+		// OUR CUBES WITH LIGHTS!!!!!!! YAAAAAAAAY
+		for i in 0 ..< 10 {
+			model := glsl.mat4Translate(cubePositions[i])
+			angle := 20.0 * cast(f32)i
+			model *= glsl.mat4Rotate(glsl.vec3{1.0, 0.3, 0.5}, glsl.radians(angle))
+			shader_set_mat4(&lightingShader, "model", model)
+			gl.DrawArrays(gl.TRIANGLES, 0, 36)
+		}
+
+		// draw the tiny cube!
 
 		shader_use(&lightCubeShader)
 
