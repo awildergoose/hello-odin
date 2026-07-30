@@ -9,7 +9,7 @@ import "core:math/linalg/glsl"
 
 import gl "vendor:OpenGL"
 import "vendor:glfw"
-// import stbi "vendor:stb/image"
+import stbi "vendor:stb/image"
 
 GameState :: struct {
 	deltaTime:  f32,
@@ -125,19 +125,19 @@ main :: proc() {
 	gl.Viewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 
 	// load texture
-	// first_image_width: i32 = ---
-	// first_image_height: i32 = ---
+	first_image_width: i32 = ---
+	first_image_height: i32 = ---
 	// second_image_width: i32 = ---
 	// second_image_height: i32 = ---
-	// nrChannels: i32 = ---
+	nrChannels: i32 = ---
 
-	// first_image_data := stbi.load(
-	// 	"assets/container.jpg",
-	// 	&first_image_width,
-	// 	&first_image_height,
-	// 	&nrChannels,
-	// 	0,
-	// )
+	first_image_data := stbi.load(
+		"assets/container2.png",
+		&first_image_width,
+		&first_image_height,
+		&nrChannels,
+		0,
+	)
 	// stbi.set_flip_vertically_on_load(1)
 	// second_image_data := stbi.load(
 	// 	"assets/awesomeface.png",
@@ -188,16 +188,16 @@ main :: proc() {
 	// Set the vertex attributes
 
 	// position
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 6 * size_of(f32), 0)
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 8 * size_of(f32), 0)
 	gl.EnableVertexAttribArray(0)
 
 	// normal
-	gl.VertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 6 * size_of(f32), 3 * size_of(f32))
+	gl.VertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 8 * size_of(f32), 3 * size_of(f32))
 	gl.EnableVertexAttribArray(1)
 
 	// texture coords
-	// gl.VertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, 5 * size_of(f32), 3 * size_of(f32))
-	// gl.EnableVertexAttribArray(1)
+	gl.VertexAttribPointer(2, 2, gl.FLOAT, gl.FALSE, 8 * size_of(f32), 6 * size_of(f32))
+	gl.EnableVertexAttribArray(2)
 
 	// Make our light VAO
 	lightCubeVAO: u32 = ---
@@ -205,16 +205,16 @@ main :: proc() {
 	gl.BindVertexArray(lightCubeVAO)
 	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
 
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 6 * size_of(f32), 0)
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 8 * size_of(f32), 0)
 	gl.EnableVertexAttribArray(0)
 
 	// Initialize textures
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
-	// texture1 := make_texture(first_image_width, first_image_height, gl.RGB, first_image_data)
+	texture1 := make_texture(first_image_width, first_image_height, gl.RGBA, first_image_data)
 	// texture2 := make_texture(second_image_width, second_image_height, gl.RGBA, second_image_data)
 
 	// reset state
@@ -223,6 +223,9 @@ main :: proc() {
 
 	// set some flags up :)
 	gl.Enable(gl.DEPTH_TEST)
+
+	shader_use(&lightingShader)
+	shader_set_int(&lightingShader, "material.diffuse", 0)
 
 	for !glfw.WindowShouldClose(window) {
 		// free everything temporary
@@ -250,30 +253,22 @@ main :: proc() {
 		view := camera_get_view(&state.camera)
 		projection := camera_get_projection(&state.camera, SCREEN_WIDTH, SCREEN_HEIGHT)
 
+		texture_use_slotted(&texture1, 0)
+
 		// MVP
-		shader_set_mat4(&lightingShader, "projection", projection)
-		shader_set_mat4(&lightingShader, "view", view)
 		shader_set_mat4(&lightingShader, "model", glsl.mat4(1.0))
+		shader_set_mat4(&lightingShader, "view", view)
+		shader_set_mat4(&lightingShader, "projection", projection)
 		shader_set_vec3(&lightingShader, "viewPos", state.camera.pos)
 
 		shader_set_vec3(&lightingShader, "material.ambient", glsl.vec3{1.0, 0.5, 0.31})
-		shader_set_vec3(&lightingShader, "material.diffuse", glsl.vec3{1.0, 0.5, 0.31})
 		shader_set_vec3(&lightingShader, "material.specular", glsl.vec3{0.5, 0.5, 0.5})
 		shader_set_float(&lightingShader, "material.shininess", 32.0)
 
 		shader_set_vec3(&lightingShader, "light.position", state.lightPos)
+		shader_set_vec3(&lightingShader, "light.ambient", glsl.vec3{0.2, 0.2, 0.2})
+		shader_set_vec3(&lightingShader, "light.diffuse", glsl.vec3{0.5, 0.5, 0.5})
 		shader_set_vec3(&lightingShader, "light.specular", glsl.vec3{1.0, 1.0, 1.0})
-
-		lightColor: glsl.vec3
-		lightColor.x = math.sin(currentFrame * 2.0)
-		lightColor.y = math.sin(currentFrame * 0.7)
-		lightColor.z = math.sin(currentFrame * 1.3)
-
-		diffuseColor := lightColor * glsl.vec3(0.5)
-		ambientColor := diffuseColor * glsl.vec3(0.2)
-
-		shader_set_vec3(&lightingShader, "light.ambient", ambientColor)
-		shader_set_vec3(&lightingShader, "light.diffuse", diffuseColor)
 
 		gl.BindVertexArray(cubeVAO)
 		gl.DrawArrays(gl.TRIANGLES, 0, 36)
@@ -281,13 +276,13 @@ main :: proc() {
 		shader_use(&lightCubeShader)
 
 		// MVP
-		shader_set_mat4(&lightCubeShader, "projection", projection)
-		shader_set_mat4(&lightCubeShader, "view", view)
 		shader_set_mat4(
 			&lightCubeShader,
 			"model",
 			glsl.mat4Translate(state.lightPos) * glsl.mat4Scale(glsl.vec3(0.2)),
 		)
+		shader_set_mat4(&lightCubeShader, "view", view)
+		shader_set_mat4(&lightCubeShader, "projection", projection)
 
 		gl.BindVertexArray(lightCubeVAO)
 		gl.DrawArrays(gl.TRIANGLES, 0, 36)
