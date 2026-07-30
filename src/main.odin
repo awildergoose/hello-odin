@@ -2,6 +2,7 @@ package main
 
 import "base:runtime"
 import "core:fmt"
+import "core:math"
 import "core:math/linalg/glsl"
 
 @(require) import "core:mem"
@@ -231,6 +232,10 @@ main :: proc() {
 		currentFrame := cast(f32)glfw.GetTime()
 		state.deltaTime = currentFrame - state.lastFrame
 		state.lastFrame = currentFrame
+
+		state.lightPos.x = math.sin(currentFrame * 4) * 1.5
+		state.lightPos.y = math.cos(currentFrame * 4) * 1.5
+		state.lightPos.z = math.tan(currentFrame * 4) * 1.5
 
 		process_input(window)
 
