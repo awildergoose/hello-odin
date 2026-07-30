@@ -187,8 +187,12 @@ main :: proc() {
 	// Set the vertex attributes
 
 	// position
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * size_of(f32), 0)
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 6 * size_of(f32), 0)
 	gl.EnableVertexAttribArray(0)
+
+	// normal
+	gl.VertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 6 * size_of(f32), 3 * size_of(f32))
+	gl.EnableVertexAttribArray(1)
 
 	// texture coords
 	// gl.VertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, 5 * size_of(f32), 3 * size_of(f32))
@@ -199,7 +203,8 @@ main :: proc() {
 	gl.GenVertexArrays(1, &lightCubeVAO)
 	gl.BindVertexArray(lightCubeVAO)
 	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * size_of(f32), 0)
+
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 6 * size_of(f32), 0)
 	gl.EnableVertexAttribArray(0)
 
 	// Initialize textures
@@ -240,17 +245,25 @@ main :: proc() {
 		view := camera_get_view(&state.camera)
 		projection := camera_get_projection(&state.camera, SCREEN_WIDTH, SCREEN_HEIGHT)
 
+		// MVP
 		shader_set_mat4(&lightingShader, "projection", projection)
 		shader_set_mat4(&lightingShader, "view", view)
 		shader_set_mat4(&lightingShader, "model", glsl.mat4(1.0))
+		shader_set_vec3(&lightingShader, "lightPos", state.lightPos)
+
 		gl.BindVertexArray(cubeVAO)
 		gl.DrawArrays(gl.TRIANGLES, 0, 36)
 
 		shader_use(&lightCubeShader)
+
+		// MVP
 		shader_set_mat4(&lightCubeShader, "projection", projection)
 		shader_set_mat4(&lightCubeShader, "view", view)
-		model := glsl.mat4Translate(state.lightPos) * glsl.mat4Scale(glsl.vec3(0.2))
-		shader_set_mat4(&lightCubeShader, "model", model)
+		shader_set_mat4(
+			&lightCubeShader,
+			"model",
+			glsl.mat4Translate(state.lightPos) * glsl.mat4Scale(glsl.vec3(0.2)),
+		)
 
 		gl.BindVertexArray(lightCubeVAO)
 		gl.DrawArrays(gl.TRIANGLES, 0, 36)
