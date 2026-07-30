@@ -2,7 +2,7 @@ package main
 
 import "core:math/linalg/glsl"
 
-AbstractLight :: struct {
+AbstractLight :: struct #align (8) {
 	ambient:  glsl.vec3,
 	diffuse:  glsl.vec3,
 	specular: glsl.vec3,
@@ -14,7 +14,7 @@ AttentuatedLight :: struct {
 	quadratic: f32,
 }
 
-DirectionalLight :: struct {
+DirectionalLight :: struct #align (8) {
 	using base: AbstractLight,
 	direction:  glsl.vec3,
 }
@@ -32,12 +32,6 @@ SpotLight :: struct {
 	direction:          glsl.vec3,
 	cutOff:             f32,
 	outerCutOff:        f32,
-}
-
-Light :: union {
-	DirectionalLight,
-	PointLight,
-	SpotLight,
 }
 
 make_directional_light :: proc() -> DirectionalLight {

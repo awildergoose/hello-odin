@@ -292,18 +292,20 @@ main :: proc() {
 		shader_set_uint(&lightingShader, "pCount", cast(u32)len(&state.pointLights))
 		shader_set_uint(&lightingShader, "sCount", cast(u32)len(&state.spotLights))
 
-		// nvidia ultraraytracing
-		dlss := &state.directionalLights
-
 		gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, directionalSSBO)
-		gl.BufferData(gl.SHADER_STORAGE_BUFFER, len(dlss), dlss, gl.DYNAMIC_DRAW)
+		gl.BufferData(
+			gl.SHADER_STORAGE_BUFFER,
+			len(state.directionalLights) * size_of(DirectionalLight),
+			raw_data(state.directionalLights),
+			gl.DYNAMIC_DRAW,
+		)
 		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 1, directionalSSBO)
 
 		gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, pointSSBO)
 		gl.BufferData(
 			gl.SHADER_STORAGE_BUFFER,
-			len(&state.pointLights),
-			&state.pointLights,
+			len(state.pointLights) * size_of(PointLight),
+			raw_data(state.pointLights),
 			gl.DYNAMIC_DRAW,
 		)
 		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 2, pointSSBO)
@@ -311,8 +313,8 @@ main :: proc() {
 		gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, spotSSBO)
 		gl.BufferData(
 			gl.SHADER_STORAGE_BUFFER,
-			len(&state.spotLights),
-			&state.spotLights,
+			len(state.spotLights) * size_of(SpotLight),
+			raw_data(state.spotLights),
 			gl.DYNAMIC_DRAW,
 		)
 		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 3, spotSSBO)
