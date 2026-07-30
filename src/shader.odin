@@ -109,3 +109,8 @@ shader_set_mat4 := proc(shader: ^Shader, name: string, value: glsl.mat4) {
 	value := value
 	gl.UniformMatrix4fv(shader_get_location(shader, name), 1, gl.FALSE, raw_data(&value))
 }
+
+shader_set_vec3 := proc(shader: ^Shader, name: string, value: glsl.vec3) {
+	value := value
+	gl.Uniform3fv(shader_get_location(shader, name), 1, raw_data(&value))
+}

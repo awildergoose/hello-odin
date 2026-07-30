@@ -84,7 +84,3 @@ camera_get_projection :: proc(
 		100.0,
 	)
 }
-
-camera_get_model :: proc() -> glsl.mat4 {
-	return glsl.mat4Rotate(glsl.vec3{1.0, 0.0, 0.0}, glsl.radians_f32(-55.0))
-}
