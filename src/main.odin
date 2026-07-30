@@ -264,10 +264,13 @@ main :: proc() {
 
 		shader_set_float(&lightingShader, "material.shininess", 32.0)
 
-		shader_set_vec3(&lightingShader, "light.direction", glsl.vec3{-0.2, -1.0, -0.3})
+		shader_set_vec3(&lightingShader, "light.position", state.lightPos)
 		shader_set_vec3(&lightingShader, "light.ambient", glsl.vec3{0.2, 0.2, 0.2})
 		shader_set_vec3(&lightingShader, "light.diffuse", glsl.vec3{0.5, 0.5, 0.5})
 		shader_set_vec3(&lightingShader, "light.specular", glsl.vec3{1.0, 1.0, 1.0})
+		shader_set_float(&lightingShader, "light.constant", 1.0)
+		shader_set_float(&lightingShader, "light.linear", 0.09)
+		shader_set_float(&lightingShader, "light.quadratic", 0.032)
 
 		gl.BindVertexArray(cubeVAO)
 
