@@ -250,6 +250,7 @@ main :: proc() {
 		shader_set_mat4(&lightingShader, "view", view)
 		shader_set_mat4(&lightingShader, "model", glsl.mat4(1.0))
 		shader_set_vec3(&lightingShader, "lightPos", state.lightPos)
+		shader_set_vec3(&lightingShader, "viewPos", state.camera.pos)
 
 		gl.BindVertexArray(cubeVAO)
 		gl.DrawArrays(gl.TRIANGLES, 0, 36)
