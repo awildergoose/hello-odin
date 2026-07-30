@@ -264,13 +264,20 @@ main :: proc() {
 
 		shader_set_float(&lightingShader, "material.shininess", 32.0)
 
-		shader_set_vec3(&lightingShader, "light.position", state.lightPos)
+		shader_set_vec3(&lightingShader, "light.position", state.camera.pos)
+		shader_set_vec3(&lightingShader, "light.direction", state.camera.front)
 		shader_set_vec3(&lightingShader, "light.ambient", glsl.vec3{0.2, 0.2, 0.2})
 		shader_set_vec3(&lightingShader, "light.diffuse", glsl.vec3{0.5, 0.5, 0.5})
 		shader_set_vec3(&lightingShader, "light.specular", glsl.vec3{1.0, 1.0, 1.0})
 		shader_set_float(&lightingShader, "light.constant", 1.0)
 		shader_set_float(&lightingShader, "light.linear", 0.09)
 		shader_set_float(&lightingShader, "light.quadratic", 0.032)
+		shader_set_float(&lightingShader, "light.cutOff", glsl.cos_f32(glsl.radians_f32(12.5)))
+		shader_set_float(
+			&lightingShader,
+			"light.outerCutOff",
+			glsl.cos_f32(glsl.radians_f32(17.5)),
+		)
 
 		gl.BindVertexArray(cubeVAO)
 
@@ -285,19 +292,19 @@ main :: proc() {
 
 		// draw the tiny cube!
 
-		shader_use(&lightCubeShader)
+		// shader_use(&lightCubeShader)
 
-		// MVP
-		shader_set_mat4(
-			&lightCubeShader,
-			"model",
-			glsl.mat4Translate(state.lightPos) * glsl.mat4Scale(glsl.vec3(0.2)),
-		)
-		shader_set_mat4(&lightCubeShader, "view", view)
-		shader_set_mat4(&lightCubeShader, "projection", projection)
+		// // MVP
+		// shader_set_mat4(
+		// 	&lightCubeShader,
+		// 	"model",
+		// 	glsl.mat4Translate(state.lightPos) * glsl.mat4Scale(glsl.vec3(0.2)),
+		// )
+		// shader_set_mat4(&lightCubeShader, "view", view)
+		// shader_set_mat4(&lightCubeShader, "projection", projection)
 
-		gl.BindVertexArray(lightCubeVAO)
-		gl.DrawArrays(gl.TRIANGLES, 0, 36)
+		// gl.BindVertexArray(lightCubeVAO)
+		// gl.DrawArrays(gl.TRIANGLES, 0, 36)
 
 		glfw.SwapBuffers(window)
 		glfw.PollEvents()
