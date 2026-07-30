@@ -12,23 +12,29 @@ import "vendor:glfw"
 import stbi "vendor:stb/image"
 
 GameState :: struct {
-	deltaTime:  f32,
-	lastFrame:  f32,
-	firstMouse: bool,
-	lastMouseX: f32,
-	lastMouseY: f32,
-	camera:     Camera,
-	lightPos:   glsl.vec3,
+	deltaTime:         f32,
+	lastFrame:         f32,
+	firstMouse:        bool,
+	lastMouseX:        f32,
+	lastMouseY:        f32,
+	camera:            Camera,
+	lightPos:          glsl.vec3,
+	directionalLights: [dynamic]DirectionalLight,
+	pointLights:       [dynamic]PointLight,
+	spotLights:        [dynamic]SpotLight,
 }
 
 state := GameState {
-	deltaTime  = 0.0,
-	lastFrame  = 0.0,
-	firstMouse = true,
-	lastMouseX = cast(f32)SCREEN_WIDTH / 2.0,
-	lastMouseY = cast(f32)SCREEN_HEIGHT / 2.0,
-	camera     = DEFAULT_CAMERA,
-	lightPos   = glsl.vec3{1.2, 1.0, 2.0},
+	deltaTime         = 0.0,
+	lastFrame         = 0.0,
+	firstMouse        = true,
+	lastMouseX        = cast(f32)SCREEN_WIDTH / 2.0,
+	lastMouseY        = cast(f32)SCREEN_HEIGHT / 2.0,
+	camera            = DEFAULT_CAMERA,
+	lightPos          = glsl.vec3{1.2, 1.0, 2.0},
+	directionalLights = {},
+	pointLights       = {},
+	spotLights        = {},
 }
 
 framebuffer_size_callback :: proc "c" (window: glfw.WindowHandle, width: i32, height: i32) {
@@ -217,9 +223,23 @@ main :: proc() {
 	texture1 := make_texture(first_image_width, first_image_height, gl.RGBA, first_image_data)
 	texture2 := make_texture(second_image_width, second_image_height, gl.RGBA, second_image_data)
 
+	// initialize our 3 SSBOs for lighting
+	directionalSSBO: u32 = ---
+	gl.GenBuffers(1, &directionalSSBO)
+	defer gl.DeleteBuffers(1, &directionalSSBO)
+
+	pointSSBO: u32 = ---
+	gl.GenBuffers(1, &pointSSBO)
+	defer gl.DeleteBuffers(1, &pointSSBO)
+
+	spotSSBO: u32 = ---
+	gl.GenBuffers(1, &spotSSBO)
+	defer gl.DeleteBuffers(1, &spotSSBO)
+
 	// reset state
 	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 	gl.BindVertexArray(0)
+	// gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, 0)
 
 	// set some flags up :)
 	gl.Enable(gl.DEPTH_TEST)
@@ -227,6 +247,12 @@ main :: proc() {
 	shader_use(&lightingShader)
 	shader_set_int(&lightingShader, "material.diffuse", 0)
 	shader_set_int(&lightingShader, "material.specular", 1)
+
+	append(&state.directionalLights, make_directional_light())
+
+	defer delete(state.directionalLights)
+	defer delete(state.spotLights)
+	defer delete(state.pointLights)
 
 	for !glfw.WindowShouldClose(window) {
 		// free everything temporary
@@ -248,8 +274,6 @@ main :: proc() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 		shader_use(&lightingShader)
-		shader_set_vec3(&lightingShader, "objectColor", glsl.vec3{1.0, 0.5, 0.31})
-		shader_set_vec3(&lightingShader, "lightColor", glsl.vec3{1.0, 1.0, 1.0})
 
 		view := camera_get_view(&state.camera)
 		projection := camera_get_projection(&state.camera, SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -260,24 +284,38 @@ main :: proc() {
 		// MVP
 		shader_set_mat4(&lightingShader, "view", view)
 		shader_set_mat4(&lightingShader, "projection", projection)
-		shader_set_vec3(&lightingShader, "viewPos", state.camera.pos)
 
+		shader_set_vec3(&lightingShader, "viewPos", state.camera.pos)
 		shader_set_float(&lightingShader, "material.shininess", 32.0)
 
-		shader_set_vec3(&lightingShader, "light.position", state.camera.pos)
-		shader_set_vec3(&lightingShader, "light.direction", state.camera.front)
-		shader_set_vec3(&lightingShader, "light.ambient", glsl.vec3{0.2, 0.2, 0.2})
-		shader_set_vec3(&lightingShader, "light.diffuse", glsl.vec3{0.5, 0.5, 0.5})
-		shader_set_vec3(&lightingShader, "light.specular", glsl.vec3{1.0, 1.0, 1.0})
-		shader_set_float(&lightingShader, "light.constant", 1.0)
-		shader_set_float(&lightingShader, "light.linear", 0.09)
-		shader_set_float(&lightingShader, "light.quadratic", 0.032)
-		shader_set_float(&lightingShader, "light.cutOff", glsl.cos_f32(glsl.radians_f32(12.5)))
-		shader_set_float(
-			&lightingShader,
-			"light.outerCutOff",
-			glsl.cos_f32(glsl.radians_f32(17.5)),
+		shader_set_uint(&lightingShader, "dCount", cast(u32)len(&state.directionalLights))
+		shader_set_uint(&lightingShader, "pCount", cast(u32)len(&state.pointLights))
+		shader_set_uint(&lightingShader, "sCount", cast(u32)len(&state.spotLights))
+
+		// nvidia ultraraytracing
+		dlss := &state.directionalLights
+
+		gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, directionalSSBO)
+		gl.BufferData(gl.SHADER_STORAGE_BUFFER, len(dlss), dlss, gl.DYNAMIC_DRAW)
+		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 1, directionalSSBO)
+
+		gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, pointSSBO)
+		gl.BufferData(
+			gl.SHADER_STORAGE_BUFFER,
+			len(&state.pointLights),
+			&state.pointLights,
+			gl.DYNAMIC_DRAW,
 		)
+		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 2, pointSSBO)
+
+		gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, spotSSBO)
+		gl.BufferData(
+			gl.SHADER_STORAGE_BUFFER,
+			len(&state.spotLights),
+			&state.spotLights,
+			gl.DYNAMIC_DRAW,
+		)
+		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 3, spotSSBO)
 
 		gl.BindVertexArray(cubeVAO)
 

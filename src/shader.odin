@@ -101,6 +101,10 @@ shader_set_int := proc(shader: ^Shader, name: string, value: i32) {
 	gl.Uniform1i(shader_get_location(shader, name), value)
 }
 
+shader_set_uint := proc(shader: ^Shader, name: string, value: u32) {
+	gl.Uniform1ui(shader_get_location(shader, name), value)
+}
+
 shader_set_float := proc(shader: ^Shader, name: string, value: f32) {
 	gl.Uniform1f(shader_get_location(shader, name), value)
 }
