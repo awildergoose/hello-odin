@@ -235,7 +235,7 @@ main :: proc() {
 
 		state.lightPos.x = math.sin(currentFrame * 4) * 1.5
 		state.lightPos.y = math.cos(currentFrame * 4) * 1.5
-		state.lightPos.z = math.tan(currentFrame * 4) * 1.5
+		state.lightPos.z = math.cos(currentFrame * 2) * 1.5
 
 		process_input(window)
 
@@ -254,8 +254,26 @@ main :: proc() {
 		shader_set_mat4(&lightingShader, "projection", projection)
 		shader_set_mat4(&lightingShader, "view", view)
 		shader_set_mat4(&lightingShader, "model", glsl.mat4(1.0))
-		shader_set_vec3(&lightingShader, "lightPos", state.lightPos)
 		shader_set_vec3(&lightingShader, "viewPos", state.camera.pos)
+
+		shader_set_vec3(&lightingShader, "material.ambient", glsl.vec3{1.0, 0.5, 0.31})
+		shader_set_vec3(&lightingShader, "material.diffuse", glsl.vec3{1.0, 0.5, 0.31})
+		shader_set_vec3(&lightingShader, "material.specular", glsl.vec3{0.5, 0.5, 0.5})
+		shader_set_float(&lightingShader, "material.shininess", 32.0)
+
+		shader_set_vec3(&lightingShader, "light.position", state.lightPos)
+		shader_set_vec3(&lightingShader, "light.specular", glsl.vec3{1.0, 1.0, 1.0})
+
+		lightColor: glsl.vec3
+		lightColor.x = math.sin(currentFrame * 2.0)
+		lightColor.y = math.sin(currentFrame * 0.7)
+		lightColor.z = math.sin(currentFrame * 1.3)
+
+		diffuseColor := lightColor * glsl.vec3(0.5)
+		ambientColor := diffuseColor * glsl.vec3(0.2)
+
+		shader_set_vec3(&lightingShader, "light.ambient", ambientColor)
+		shader_set_vec3(&lightingShader, "light.diffuse", diffuseColor)
 
 		gl.BindVertexArray(cubeVAO)
 		gl.DrawArrays(gl.TRIANGLES, 0, 36)
