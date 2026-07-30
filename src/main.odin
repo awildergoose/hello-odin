@@ -127,8 +127,8 @@ main :: proc() {
 	// load texture
 	first_image_width: i32 = ---
 	first_image_height: i32 = ---
-	// second_image_width: i32 = ---
-	// second_image_height: i32 = ---
+	second_image_width: i32 = ---
+	second_image_height: i32 = ---
 	nrChannels: i32 = ---
 
 	first_image_data := stbi.load(
@@ -139,13 +139,13 @@ main :: proc() {
 		0,
 	)
 	// stbi.set_flip_vertically_on_load(1)
-	// second_image_data := stbi.load(
-	// 	"assets/awesomeface.png",
-	// 	&second_image_width,
-	// 	&second_image_height,
-	// 	&nrChannels,
-	// 	0,
-	// )
+	second_image_data := stbi.load(
+		"assets/container2_specular.png",
+		&second_image_width,
+		&second_image_height,
+		&nrChannels,
+		0,
+	)
 
 	lightCubeShader, err := shader_create("assets/shaders/cube.vert", "assets/shaders/cube.frag")
 	if err != nil {
@@ -215,7 +215,7 @@ main :: proc() {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
 	texture1 := make_texture(first_image_width, first_image_height, gl.RGBA, first_image_data)
-	// texture2 := make_texture(second_image_width, second_image_height, gl.RGBA, second_image_data)
+	texture2 := make_texture(second_image_width, second_image_height, gl.RGBA, second_image_data)
 
 	// reset state
 	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
@@ -226,6 +226,7 @@ main :: proc() {
 
 	shader_use(&lightingShader)
 	shader_set_int(&lightingShader, "material.diffuse", 0)
+	shader_set_int(&lightingShader, "material.specular", 1)
 
 	for !glfw.WindowShouldClose(window) {
 		// free everything temporary
@@ -254,6 +255,7 @@ main :: proc() {
 		projection := camera_get_projection(&state.camera, SCREEN_WIDTH, SCREEN_HEIGHT)
 
 		texture_use_slotted(&texture1, 0)
+		texture_use_slotted(&texture2, 1)
 
 		// MVP
 		shader_set_mat4(&lightingShader, "model", glsl.mat4(1.0))
@@ -261,8 +263,6 @@ main :: proc() {
 		shader_set_mat4(&lightingShader, "projection", projection)
 		shader_set_vec3(&lightingShader, "viewPos", state.camera.pos)
 
-		shader_set_vec3(&lightingShader, "material.ambient", glsl.vec3{1.0, 0.5, 0.31})
-		shader_set_vec3(&lightingShader, "material.specular", glsl.vec3{0.5, 0.5, 0.5})
 		shader_set_float(&lightingShader, "material.shininess", 32.0)
 
 		shader_set_vec3(&lightingShader, "light.position", state.lightPos)
