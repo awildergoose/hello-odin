@@ -2,7 +2,6 @@ package main
 
 import "base:runtime"
 import "core:fmt"
-import "core:math"
 import "core:math/linalg/glsl"
 
 @(require) import "core:mem"
@@ -18,7 +17,6 @@ GameState :: struct {
 	lastMouseX:        f32,
 	lastMouseY:        f32,
 	camera:            Camera,
-	lightPos:          glsl.vec3,
 	directionalLights: [dynamic]DirectionalLight,
 	pointLights:       [dynamic]PointLight,
 	spotLights:        [dynamic]SpotLight,
@@ -31,7 +29,6 @@ state := GameState {
 	lastMouseX        = cast(f32)SCREEN_WIDTH / 2.0,
 	lastMouseY        = cast(f32)SCREEN_HEIGHT / 2.0,
 	camera            = DEFAULT_CAMERA,
-	lightPos          = glsl.vec3{1.2, 1.0, 2.0},
 	directionalLights = {},
 	pointLights       = {},
 	spotLights        = {},
@@ -131,65 +128,53 @@ main :: proc() {
 	gl.Viewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 
 	// load texture
-	first_image_width: i32 = ---
-	first_image_height: i32 = ---
-	second_image_width: i32 = ---
-	second_image_height: i32 = ---
+	diffuse_width: i32 = ---
+	diffuse_height: i32 = ---
+	specular_width: i32 = ---
+	specular_height: i32 = ---
 	nrChannels: i32 = ---
 
-	first_image_data := stbi.load(
+	diffuse_data := stbi.load(
 		"assets/container2.png",
-		&first_image_width,
-		&first_image_height,
+		&diffuse_width,
+		&diffuse_height,
 		&nrChannels,
 		0,
 	)
 	// stbi.set_flip_vertically_on_load(1)
-	second_image_data := stbi.load(
+	specular_data := stbi.load(
 		"assets/container2_specular.png",
-		&second_image_width,
-		&second_image_height,
+		&specular_width,
+		&specular_height,
 		&nrChannels,
 		0,
 	)
 
-	lightCubeShader, err := shader_create("assets/shaders/cube.vert", "assets/shaders/cube.frag")
+	shadedObjectShader, err := shader_create(
+		"assets/shaders/light.vert",
+		"assets/shaders/light.frag",
+	)
 	if err != nil {
-		fmt.panicf("failed to compile shader: %s", err)
+		fmt.panicf("failed to compile lighting shader: %s", err)
 	}
 
 	// delete it later
-	defer shader_delete(&lightCubeShader)
+	defer shader_delete(&shadedObjectShader)
 
-	lightingShader, err2 := shader_create("assets/shaders/light.vert", "assets/shaders/light.frag")
-	if err2 != nil {
-		fmt.panicf("failed to compile lighting shader: %s", err2)
-	}
-
-	// delete it later
-	defer shader_delete(&lightingShader)
-
-	cubeVAO: u32 = --- // buffer for vertex attributes
+	VAO: u32 = --- // buffer for vertex attributes
 	VBO: u32 = --- // buffer for vertices
-	// EBO: u32 = --- // buffer for element order
 
 	// Generate the buffers from the GPU
-	gl.GenVertexArrays(1, &cubeVAO)
+	gl.GenVertexArrays(1, &VAO)
 	gl.GenBuffers(1, &VBO)
-	// gl.GenBuffers(1, &EBO)
 
-	defer gl.DeleteVertexArrays(1, &cubeVAO)
+	defer gl.DeleteVertexArrays(1, &VAO)
 	defer gl.DeleteBuffers(1, &VBO)
-	// defer gl.DeleteBuffers(1, &EBO)
 
 	// Send our vertices to the VAO
 	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
 	gl.BufferData(gl.ARRAY_BUFFER, size_of(vertices), &vertices, gl.STATIC_DRAW)
-	gl.BindVertexArray(cubeVAO)
-
-	// Send our indices to the EBO
-	// gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO)
-	// gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, size_of(indices), &indices, gl.STATIC_DRAW)
+	gl.BindVertexArray(VAO)
 
 	// Set the vertex attributes
 
@@ -205,23 +190,14 @@ main :: proc() {
 	gl.VertexAttribPointer(2, 2, gl.FLOAT, gl.FALSE, 8 * size_of(f32), 6 * size_of(f32))
 	gl.EnableVertexAttribArray(2)
 
-	// Make our light VAO
-	lightCubeVAO: u32 = ---
-	gl.GenVertexArrays(1, &lightCubeVAO)
-	gl.BindVertexArray(lightCubeVAO)
-	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
-
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 8 * size_of(f32), 0)
-	gl.EnableVertexAttribArray(0)
-
 	// Initialize textures
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
-	texture1 := make_texture(first_image_width, first_image_height, gl.RGBA, first_image_data)
-	texture2 := make_texture(second_image_width, second_image_height, gl.RGBA, second_image_data)
+	diffuse_tex := make_texture(diffuse_width, diffuse_height, gl.RGBA, diffuse_data)
+	specular_tex := make_texture(specular_width, specular_height, gl.RGBA, specular_data)
 
 	// initialize our 3 SSBOs for lighting
 	directionalSSBO: u32 = ---
@@ -239,14 +215,13 @@ main :: proc() {
 	// reset state
 	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 	gl.BindVertexArray(0)
-	// gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, 0)
 
 	// set some flags up :)
 	gl.Enable(gl.DEPTH_TEST)
 
-	shader_use(&lightingShader)
-	shader_set_int(&lightingShader, "material.diffuse", 0)
-	shader_set_int(&lightingShader, "material.specular", 1)
+	shader_use(&shadedObjectShader)
+	shader_set_int(&shadedObjectShader, "material.diffuse", 0)
+	shader_set_int(&shadedObjectShader, "material.specular", 1)
 
 	append(
 		&state.directionalLights,
@@ -310,7 +285,7 @@ main :: proc() {
 		),
 	)
 
-	mySpotLight := append(
+	flashlight := append(
 		&state.spotLights,
 		make_spot_light(
 			state.camera.pos,
@@ -325,7 +300,7 @@ main :: proc() {
 			glsl.cos_f32(glsl.radians_f32(15.0)),
 		),
 	)
-	mySpotLight -= 1
+	flashlight -= 1
 
 	defer delete(state.directionalLights)
 	defer delete(state.spotLights)
@@ -347,38 +322,34 @@ main :: proc() {
 		state.deltaTime = currentFrame - state.lastFrame
 		state.lastFrame = currentFrame
 
-		state.lightPos.x = math.sin(currentFrame * 4) * 1.5
-		state.lightPos.y = math.cos(currentFrame * 4) * 1.5
-		state.lightPos.z = math.cos(currentFrame * 2) * 1.5
-
 		process_input(window)
 
 		// we render here!
 		gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		shader_use(&lightingShader)
+		shader_use(&shadedObjectShader)
 
 		view := camera_get_view(&state.camera)
 		projection := camera_get_projection(&state.camera, SCREEN_WIDTH, SCREEN_HEIGHT)
 
-		texture_use_slotted(&texture1, 0)
-		texture_use_slotted(&texture2, 1)
+		texture_use_slotted(&diffuse_tex, 0)
+		texture_use_slotted(&specular_tex, 1)
 
 		// MVP
-		shader_set_mat4(&lightingShader, "view", view)
-		shader_set_mat4(&lightingShader, "projection", projection)
+		shader_set_mat4(&shadedObjectShader, "view", view)
+		shader_set_mat4(&shadedObjectShader, "projection", projection)
 
-		shader_set_vec3(&lightingShader, "viewPos", state.camera.pos)
-		shader_set_float(&lightingShader, "material.shininess", 32.0)
-		shader_set_float(&lightingShader, "time", currentFrame)
+		shader_set_vec3(&shadedObjectShader, "viewPos", state.camera.pos)
+		shader_set_float(&shadedObjectShader, "material.shininess", 32.0)
+		shader_set_float(&shadedObjectShader, "time", currentFrame)
 
-		shader_set_uint(&lightingShader, "dCount", cast(u32)len(&state.directionalLights))
-		shader_set_uint(&lightingShader, "pCount", cast(u32)len(&state.pointLights))
-		shader_set_uint(&lightingShader, "sCount", cast(u32)len(&state.spotLights))
+		shader_set_uint(&shadedObjectShader, "dCount", cast(u32)len(&state.directionalLights))
+		shader_set_uint(&shadedObjectShader, "pCount", cast(u32)len(&state.pointLights))
+		shader_set_uint(&shadedObjectShader, "sCount", cast(u32)len(&state.spotLights))
 
-		state.spotLights[mySpotLight].position = state.camera.pos
-		state.spotLights[mySpotLight].direction = state.camera.front
+		state.spotLights[flashlight].position = state.camera.pos
+		state.spotLights[flashlight].direction = state.camera.front
 
 		for &light in state.directionalLights {
 			encode_directional_light(&std430, &light)
@@ -423,32 +394,16 @@ main :: proc() {
 		)
 		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 3, spotSSBO)
 
-		gl.BindVertexArray(cubeVAO)
+		gl.BindVertexArray(VAO)
 
 		// OUR CUBES WITH LIGHTS!!!!!!! YAAAAAAAAY
 		for i in 0 ..< 10 {
 			model := glsl.mat4Translate(cubePositions[i])
 			angle := 20.0 * cast(f32)i
 			model *= glsl.mat4Rotate(glsl.vec3{1.0, 0.3, 0.5}, glsl.radians(angle))
-			shader_set_mat4(&lightingShader, "model", model)
+			shader_set_mat4(&shadedObjectShader, "model", model)
 			gl.DrawArrays(gl.TRIANGLES, 0, 36)
 		}
-
-		// draw the tiny cube!
-
-		// shader_use(&lightCubeShader)
-
-		// // MVP
-		// shader_set_mat4(
-		// 	&lightCubeShader,
-		// 	"model",
-		// 	glsl.mat4Translate(state.lightPos) * glsl.mat4Scale(glsl.vec3(0.2)),
-		// )
-		// shader_set_mat4(&lightCubeShader, "view", view)
-		// shader_set_mat4(&lightCubeShader, "projection", projection)
-
-		// gl.BindVertexArray(lightCubeVAO)
-		// gl.DrawArrays(gl.TRIANGLES, 0, 36)
 
 		glfw.SwapBuffers(window)
 		glfw.PollEvents()
