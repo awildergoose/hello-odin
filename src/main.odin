@@ -248,7 +248,85 @@ main :: proc() {
 	shader_set_int(&lightingShader, "material.diffuse", 0)
 	shader_set_int(&lightingShader, "material.specular", 1)
 
-	append(&state.directionalLights, make_directional_light())
+
+	append(
+		&state.directionalLights,
+		make_directional_light(
+			glsl.vec3(0.0),
+			glsl.vec3(0.05),
+			glsl.vec3(0.2),
+			glsl.vec3{-0.2, -1.0, -0.3},
+		),
+	)
+
+	append(
+		&state.pointLights,
+		make_point_light(
+			pointLightPositions[0],
+			pointLightColors[0] * 0.1,
+			pointLightColors[0],
+			pointLightColors[0],
+			1.0,
+			0.14,
+			0.07,
+		),
+	)
+
+	append(
+		&state.pointLights,
+		make_point_light(
+			pointLightPositions[1],
+			pointLightColors[1] * 0.1,
+			pointLightColors[1],
+			pointLightColors[1],
+			1.0,
+			0.14,
+			0.07,
+		),
+	)
+
+	append(
+		&state.pointLights,
+		make_point_light(
+			pointLightPositions[2],
+			pointLightColors[2] * 0.1,
+			pointLightColors[2],
+			pointLightColors[2],
+			1.0,
+			0.22,
+			0.20,
+		),
+	)
+
+	append(
+		&state.pointLights,
+		make_point_light(
+			pointLightPositions[3],
+			pointLightColors[3] * 0.1,
+			pointLightColors[3],
+			pointLightColors[3],
+			1.0,
+			0.14,
+			0.07,
+		),
+	)
+
+	mySpotLight := append(
+		&state.spotLights,
+		make_spot_light(
+			state.camera.pos,
+			glsl.vec3(0.0),
+			glsl.vec3(1.0),
+			glsl.vec3(1.0),
+			1.0,
+			0.09,
+			0.032,
+			state.camera.front,
+			glsl.cos_f32(glsl.radians_f32(10.0)),
+			glsl.cos_f32(glsl.radians_f32(15.0)),
+		),
+	)
+	mySpotLight -= 1
 
 	defer delete(state.directionalLights)
 	defer delete(state.spotLights)
@@ -270,7 +348,7 @@ main :: proc() {
 		process_input(window)
 
 		// we render here!
-		gl.ClearColor(0.2, 0.3, 0.3, 1.0)
+		gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 		shader_use(&lightingShader)
@@ -291,6 +369,9 @@ main :: proc() {
 		shader_set_uint(&lightingShader, "dCount", cast(u32)len(&state.directionalLights))
 		shader_set_uint(&lightingShader, "pCount", cast(u32)len(&state.pointLights))
 		shader_set_uint(&lightingShader, "sCount", cast(u32)len(&state.spotLights))
+
+		state.spotLights[mySpotLight].position = vec3_to_vec4(state.camera.pos)
+		state.spotLights[mySpotLight].direction = vec3_to_vec4(state.camera.front)
 
 		gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, directionalSSBO)
 		gl.BufferData(

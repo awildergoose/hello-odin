@@ -71,4 +71,16 @@ cubePositions := [?]glsl.vec3{
     glsl.vec3{ 1.5,  0.2, -1.5 },
     glsl.vec3{-1.3,  1.0, -1.5 },
 }
+pointLightPositions := [?]glsl.vec3{
+    glsl.vec3{1.0, 0.6, 0.0},
+    glsl.vec3{1.0, 0.0, 0.0},
+    glsl.vec3{1.0, 1.0, 0.0},
+    glsl.vec3{0.2, 0.2, 1.0},
+}
+pointLightColors := [?]glsl.vec3{
+    glsl.vec3{0.1, 0.1, 0.1},
+    glsl.vec3{0.1, 0.1, 0.1},
+    glsl.vec3{0.1, 0.1, 0.1},
+    glsl.vec3{0.3, 0.1, 0.1},
+}
 // odinfmt: enable
