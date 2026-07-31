@@ -3,8 +3,10 @@ LINT=-vet -strict-style
 SANITIZE=-sanitize:address
 
 DBG_OPTS=-debug
+RLS_OPTS=-subsystem:windows
+
 # $(SANITIZE) -stack-protector:all
-OPTS=$(LINT) $(STANDARD) -thread-count:2 -subsystem:windows
+OPTS=$(LINT) $(STANDARD) -thread-count:2
 
 rdbg:
 	odin build src $(OPTS) $(DBG_OPTS)
@@ -20,4 +22,4 @@ build:
 run:
 	.\src
 release:
-	odin build src -o:speed $(OPTS)
+	odin build src -o:speed $(RLS_OPTS) $(OPTS)

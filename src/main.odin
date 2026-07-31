@@ -309,6 +309,7 @@ main :: proc() {
 	// this can probably fit a lot
 	std430 := make_std430(32768)
 	defer std430_clear(&std430)
+	defer delete(std430.data)
 
 	for !glfw.WindowShouldClose(window) {
 		// free everything temporary
