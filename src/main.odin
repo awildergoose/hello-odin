@@ -116,6 +116,7 @@ main :: proc() {
 	if window == nil {
 		panic("failed to create window")
 	}
+
 	glfw.MakeContextCurrent(window)
 	glfw.SetInputMode(window, glfw.CURSOR, glfw.CURSOR_DISABLED)
 
@@ -132,22 +133,15 @@ main :: proc() {
 	diffuse_height: i32 = ---
 	specular_width: i32 = ---
 	specular_height: i32 = ---
-	nrChannels: i32 = ---
 
-	diffuse_data := stbi.load(
-		"assets/container2.png",
-		&diffuse_width,
-		&diffuse_height,
-		&nrChannels,
-		0,
-	)
+	diffuse_data := stbi.load("assets/container2.png", &diffuse_width, &diffuse_height, nil, 4)
 	// stbi.set_flip_vertically_on_load(1)
 	specular_data := stbi.load(
 		"assets/container2_specular.png",
 		&specular_width,
 		&specular_height,
-		&nrChannels,
-		0,
+		nil,
+		4,
 	)
 
 	shadedObjectShader, err := shader_create(
@@ -162,7 +156,7 @@ main :: proc() {
 	defer shader_delete(&shadedObjectShader)
 
 	VAO: u32 = --- // buffer for vertex attributes
-	VBO: u32 = --- // buffer for vertices
+	VBO: u32 = --- // buffer for vertex data
 
 	// Generate the buffers from the GPU
 	gl.GenVertexArrays(1, &VAO)
@@ -171,24 +165,13 @@ main :: proc() {
 	defer gl.DeleteVertexArrays(1, &VAO)
 	defer gl.DeleteBuffers(1, &VBO)
 
-	// Send our vertices to the VAO
+	// Send our vertices to the VBO
 	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
 	gl.BufferData(gl.ARRAY_BUFFER, size_of(vertices), &vertices, gl.STATIC_DRAW)
+
+	// Initialize the vertex attributes!
 	gl.BindVertexArray(VAO)
-
-	// Set the vertex attributes
-
-	// position
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 8 * size_of(f32), 0)
-	gl.EnableVertexAttribArray(0)
-
-	// normal
-	gl.VertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 8 * size_of(f32), 3 * size_of(f32))
-	gl.EnableVertexAttribArray(1)
-
-	// texture coords
-	gl.VertexAttribPointer(2, 2, gl.FLOAT, gl.FALSE, 8 * size_of(f32), 6 * size_of(f32))
-	gl.EnableVertexAttribArray(2)
+	init_vertex_vao()
 
 	// Initialize textures
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
@@ -200,16 +183,9 @@ main :: proc() {
 	specular_tex := make_texture(specular_width, specular_height, gl.RGBA, specular_data)
 
 	// initialize our 3 SSBOs for lighting
-	directionalSSBO: u32 = ---
-	gl.GenBuffers(1, &directionalSSBO)
+	directionalSSBO, pointSSBO, spotSSBO := create_lighting_ssbos()
 	defer gl.DeleteBuffers(1, &directionalSSBO)
-
-	pointSSBO: u32 = ---
-	gl.GenBuffers(1, &pointSSBO)
 	defer gl.DeleteBuffers(1, &pointSSBO)
-
-	spotSSBO: u32 = ---
-	gl.GenBuffers(1, &spotSSBO)
 	defer gl.DeleteBuffers(1, &spotSSBO)
 
 	// reset state
@@ -246,45 +222,6 @@ main :: proc() {
 		),
 	)
 
-	append(
-		&state.pointLights,
-		make_point_light(
-			pointLightPositions[1],
-			pointLightColors[1] * 0.1,
-			pointLightColors[1],
-			pointLightColors[1],
-			1.0,
-			0.14,
-			0.07,
-		),
-	)
-
-	append(
-		&state.pointLights,
-		make_point_light(
-			pointLightPositions[2],
-			pointLightColors[2] * 0.1,
-			pointLightColors[2],
-			pointLightColors[2],
-			1.0,
-			0.22,
-			0.20,
-		),
-	)
-
-	append(
-		&state.pointLights,
-		make_point_light(
-			pointLightPositions[3],
-			pointLightColors[3] * 0.1,
-			pointLightColors[3],
-			pointLightColors[3],
-			1.0,
-			0.14,
-			0.07,
-		),
-	)
-
 	flashlight := append(
 		&state.spotLights,
 		make_spot_light(
@@ -306,7 +243,7 @@ main :: proc() {
 	defer delete(state.spotLights)
 	defer delete(state.pointLights)
 
-	// this can probably fit a lot
+	// this can probably fit at least 1 or 2 lights :clueless:
 	std430 := make_std430(32768)
 	defer std430_clear(&std430)
 	defer delete(std430.data)
