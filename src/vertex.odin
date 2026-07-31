@@ -17,7 +17,7 @@ make_vertex :: proc(x: f32, y: f32, z: f32, nX: f32, nY: f32, nZ: f32, u: f32, v
 	}
 }
 
-init_vertex_vao :: proc() {
+init_shaded_vertex_vao :: proc() {
 	// position
 	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 8 * size_of(f32), 0)
 	gl.EnableVertexAttribArray(0)

@@ -144,25 +144,20 @@ main :: proc() {
 		4,
 	)
 
-	shadedObjectShader, err := shader_create(
-		"assets/shaders/light.vert",
-		"assets/shaders/light.frag",
-	)
+	shadedShader, err := shader_create("assets/shaders/shaded.vert", "assets/shaders/shaded.frag")
 	if err != nil {
 		fmt.panicf("failed to compile lighting shader: %s", err)
 	}
 
 	// delete it later
-	defer shader_delete(&shadedObjectShader)
+	defer shader_delete(&shadedShader)
 
 	VAO: u32 = --- // buffer for vertex attributes
-	VBO: u32 = --- // buffer for vertex data
-
-	// Generate the buffers from the GPU
 	gl.GenVertexArrays(1, &VAO)
-	gl.GenBuffers(1, &VBO)
-
 	defer gl.DeleteVertexArrays(1, &VAO)
+
+	VBO: u32 = --- // buffer for vertex data
+	gl.GenBuffers(1, &VBO)
 	defer gl.DeleteBuffers(1, &VBO)
 
 	// Send our vertices to the VBO
@@ -171,7 +166,7 @@ main :: proc() {
 
 	// Initialize the vertex attributes!
 	gl.BindVertexArray(VAO)
-	init_vertex_vao()
+	init_shaded_vertex_vao()
 
 	// Initialize textures
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
@@ -195,9 +190,9 @@ main :: proc() {
 	// set some flags up :)
 	gl.Enable(gl.DEPTH_TEST)
 
-	shader_use(&shadedObjectShader)
-	shader_set_int(&shadedObjectShader, "material.diffuse", 0)
-	shader_set_int(&shadedObjectShader, "material.specular", 1)
+	shader_use(&shadedShader)
+	shader_set_int(&shadedShader, "material.diffuse", 0)
+	shader_set_int(&shadedShader, "material.specular", 1)
 
 	append(
 		&state.directionalLights,
@@ -266,28 +261,30 @@ main :: proc() {
 		gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		shader_use(&shadedObjectShader)
-
-		view := camera_get_view(&state.camera)
-		projection := camera_get_projection(&state.camera, SCREEN_WIDTH, SCREEN_HEIGHT)
+		shader_use(&shadedShader)
 
 		texture_use_slotted(&diffuse_tex, 0)
 		texture_use_slotted(&specular_tex, 1)
 
 		// MVP
-		shader_set_mat4(&shadedObjectShader, "view", view)
-		shader_set_mat4(&shadedObjectShader, "projection", projection)
+		shader_set_mat4(&shadedShader, "view", camera_get_view(&state.camera))
+		shader_set_mat4(
+			&shadedShader,
+			"projection",
+			camera_get_projection(&state.camera, SCREEN_WIDTH, SCREEN_HEIGHT),
+		)
 
-		shader_set_vec3(&shadedObjectShader, "viewPos", state.camera.pos)
-		shader_set_float(&shadedObjectShader, "material.shininess", 32.0)
-		shader_set_float(&shadedObjectShader, "time", currentFrame)
-
-		shader_set_uint(&shadedObjectShader, "dCount", cast(u32)len(&state.directionalLights))
-		shader_set_uint(&shadedObjectShader, "pCount", cast(u32)len(&state.pointLights))
-		shader_set_uint(&shadedObjectShader, "sCount", cast(u32)len(&state.spotLights))
+		shader_set_vec3(&shadedShader, "viewPos", state.camera.pos)
+		shader_set_float(&shadedShader, "material.shininess", 32.0)
+		shader_set_float(&shadedShader, "time", currentFrame)
 
 		state.spotLights[flashlight].position = state.camera.pos
 		state.spotLights[flashlight].direction = state.camera.front
+
+		// Lighting buuuuullshit
+		shader_set_uint(&shadedShader, "dCount", cast(u32)len(&state.directionalLights))
+		shader_set_uint(&shadedShader, "pCount", cast(u32)len(&state.pointLights))
+		shader_set_uint(&shadedShader, "sCount", cast(u32)len(&state.spotLights))
 
 		for &light in state.directionalLights {
 			encode_directional_light(&std430, &light)
@@ -332,6 +329,8 @@ main :: proc() {
 		)
 		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 3, spotSSBO)
 
+		// end of Lighting buuuuullshit
+
 		gl.BindVertexArray(VAO)
 
 		// OUR CUBES WITH LIGHTS!!!!!!! YAAAAAAAAY
@@ -339,7 +338,7 @@ main :: proc() {
 			model := glsl.mat4Translate(cubePositions[i])
 			angle := 20.0 * cast(f32)i
 			model *= glsl.mat4Rotate(glsl.vec3{1.0, 0.3, 0.5}, glsl.radians(angle))
-			shader_set_mat4(&shadedObjectShader, "model", model)
+			shader_set_mat4(&shadedShader, "model", model)
 			gl.DrawArrays(gl.TRIANGLES, 0, 36)
 		}
 
