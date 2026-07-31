@@ -20,6 +20,7 @@ GameState :: struct {
 	directionalLights: [dynamic]DirectionalLight,
 	pointLights:       [dynamic]PointLight,
 	spotLights:        [dynamic]SpotLight,
+	meshes:            [dynamic]Mesh,
 }
 
 state := GameState {
@@ -32,6 +33,7 @@ state := GameState {
 	directionalLights = {},
 	pointLights       = {},
 	spotLights        = {},
+	meshes            = {},
 }
 
 framebuffer_size_callback :: proc "c" (window: glfw.WindowHandle, width: i32, height: i32) {
@@ -152,21 +154,30 @@ main :: proc() {
 	// delete it later
 	defer shader_delete(&shadedShader)
 
-	VAO: u32 = --- // buffer for vertex attributes
-	gl.GenVertexArrays(1, &VAO)
-	defer gl.DeleteVertexArrays(1, &VAO)
+	shadedVAO: u32 = --- // buffer for vertex attributes
+	gl.GenVertexArrays(1, &shadedVAO)
+	defer gl.DeleteVertexArrays(1, &shadedVAO)
 
-	VBO: u32 = --- // buffer for vertex data
-	gl.GenBuffers(1, &VBO)
-	defer gl.DeleteBuffers(1, &VBO)
+	test_mesh := make_mesh(
+		.Shaded,
+		shadedVAO,
+		glsl.mat4Translate(glsl.vec3{0.0, 0.0, 3.0}),
+		Material{diffuse = 0, specular = 1, shininess = 32.0},
+		testVertices[:],
+	)
+	defer mesh_delete(&test_mesh)
+
+	// VBO: u32 = --- // buffer for vertex data
+	// gl.GenBuffers(1, &VBO)
+	// defer gl.DeleteBuffers(1, &VBO)
 
 	// Send our vertices to the VBO
-	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
-	gl.BufferData(gl.ARRAY_BUFFER, size_of(vertices), &vertices, gl.STATIC_DRAW)
+	// gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
+	// gl.BufferData(gl.ARRAY_BUFFER, size_of(vertices), &vertices, gl.STATIC_DRAW)
 
 	// Initialize the vertex attributes!
-	gl.BindVertexArray(VAO)
-	init_shaded_vertex_vao()
+	// gl.BindVertexArray(shadedVAO)
+	// init_shaded_vertex_vao()
 
 	// Initialize textures
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
@@ -190,32 +201,28 @@ main :: proc() {
 	// set some flags up :)
 	gl.Enable(gl.DEPTH_TEST)
 
-	shader_use(&shadedShader)
-	shader_set_int(&shadedShader, "material.diffuse", 0)
-	shader_set_int(&shadedShader, "material.specular", 1)
+	// append(
+	// 	&state.directionalLights,
+	// 	make_directional_light(
+	// 		glsl.vec3(0.0),
+	// 		glsl.vec3(0.05),
+	// 		glsl.vec3(0.2),
+	// 		glsl.vec3{-0.2, -1.0, -0.3},
+	// 	),
+	// )
 
-	append(
-		&state.directionalLights,
-		make_directional_light(
-			glsl.vec3(0.0),
-			glsl.vec3(0.05),
-			glsl.vec3(0.2),
-			glsl.vec3{-0.2, -1.0, -0.3},
-		),
-	)
-
-	append(
-		&state.pointLights,
-		make_point_light(
-			pointLightPositions[0],
-			pointLightColors[0] * 0.1,
-			pointLightColors[0],
-			pointLightColors[0],
-			1.0,
-			0.14,
-			0.07,
-		),
-	)
+	// append(
+	// 	&state.pointLights,
+	// 	make_point_light(
+	// 		pointLightPositions[0],
+	// 		pointLightColors[0] * 0.1,
+	// 		pointLightColors[0],
+	// 		pointLightColors[0],
+	// 		1.0,
+	// 		0.14,
+	// 		0.07,
+	// 	),
+	// )
 
 	flashlight := append(
 		&state.spotLights,
@@ -243,104 +250,54 @@ main :: proc() {
 	defer std430_clear(&std430)
 	defer delete(std430.data)
 
+	shader_use(&shadedShader)
+	texture_use_slotted(&diffuse_tex, 0)
+	texture_use_slotted(&specular_tex, 1)
+
 	for !glfw.WindowShouldClose(window) {
-		// free everything temporary
-		free_all(context.temp_allocator)
+		{
+			// free everything temporary
+			free_all(context.temp_allocator)
 
-		// clear the std430 builder buffer
-		std430_clear(&std430)
+			// clear the std430 builder buffer
+			std430_clear(&std430)
+		}
 
-		// update dt
+		// update
 		currentFrame := cast(f32)glfw.GetTime()
-		state.deltaTime = currentFrame - state.lastFrame
-		state.lastFrame = currentFrame
+		{
+			// update dt
+			state.deltaTime = currentFrame - state.lastFrame
+			state.lastFrame = currentFrame
 
-		process_input(window)
+			process_input(window)
+
+			state.spotLights[flashlight].position = state.camera.pos
+			state.spotLights[flashlight].direction = state.camera.front
+		}
 
 		// we render here!
 		gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		shader_use(&shadedShader)
-
-		texture_use_slotted(&diffuse_tex, 0)
-		texture_use_slotted(&specular_tex, 1)
-
-		// MVP
-		shader_set_mat4(&shadedShader, "view", camera_get_view(&state.camera))
-		shader_set_mat4(
-			&shadedShader,
-			"projection",
-			camera_get_projection(&state.camera, SCREEN_WIDTH, SCREEN_HEIGHT),
-		)
-
-		shader_set_vec3(&shadedShader, "viewPos", state.camera.pos)
-		shader_set_float(&shadedShader, "material.shininess", 32.0)
-		shader_set_float(&shadedShader, "time", currentFrame)
-
-		state.spotLights[flashlight].position = state.camera.pos
-		state.spotLights[flashlight].direction = state.camera.front
-
-		// Lighting buuuuullshit
-		shader_set_uint(&shadedShader, "dCount", cast(u32)len(&state.directionalLights))
-		shader_set_uint(&shadedShader, "pCount", cast(u32)len(&state.pointLights))
-		shader_set_uint(&shadedShader, "sCount", cast(u32)len(&state.spotLights))
-
-		for &light in state.directionalLights {
-			encode_directional_light(&std430, &light)
+		// Shaded render pass
+		{
+			shader_use(&shadedShader)
+			init_shared_pass(&shadedShader, currentFrame)
+			init_shaded_pass(&shadedShader, &std430, directionalSSBO, pointSSBO, spotSSBO)
 		}
 
-		gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, directionalSSBO)
-		gl.BufferData(
-			gl.SHADER_STORAGE_BUFFER,
-			std430.offset,
-			raw_data(std430.data[:std430.offset]),
-			gl.DYNAMIC_DRAW,
-		)
-		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 1, directionalSSBO)
-
-		std430_clear(&std430)
-
-		for &light in state.pointLights {
-			encode_point_light(&std430, &light)
-		}
-
-		gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, pointSSBO)
-		gl.BufferData(
-			gl.SHADER_STORAGE_BUFFER,
-			std430.offset,
-			raw_data(std430.data[:std430.offset]),
-			gl.DYNAMIC_DRAW,
-		)
-		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 2, pointSSBO)
-
-		std430_clear(&std430)
-
-		for &light in state.spotLights {
-			encode_spot_light(&std430, &light)
-		}
-
-		gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, spotSSBO)
-		gl.BufferData(
-			gl.SHADER_STORAGE_BUFFER,
-			std430.offset,
-			raw_data(std430.data[:std430.offset]),
-			gl.DYNAMIC_DRAW,
-		)
-		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 3, spotSSBO)
-
-		// end of Lighting buuuuullshit
-
-		gl.BindVertexArray(VAO)
-
+		gl.BindVertexArray(shadedVAO)
 		// OUR CUBES WITH LIGHTS!!!!!!! YAAAAAAAAY
-		for i in 0 ..< 10 {
-			model := glsl.mat4Translate(cubePositions[i])
-			angle := 20.0 * cast(f32)i
-			model *= glsl.mat4Rotate(glsl.vec3{1.0, 0.3, 0.5}, glsl.radians(angle))
-			shader_set_mat4(&shadedShader, "model", model)
-			gl.DrawArrays(gl.TRIANGLES, 0, 36)
-		}
+		shader_set_float(&shadedShader, "material.shininess", 32.0)
+		mesh_render(&test_mesh, &shadedShader)
+		// for i in 0 ..< 10 {
+		// 	model := glsl.mat4Translate(cubePositions[i])
+		// 	angle := 20.0 * cast(f32)i
+		// 	model *= glsl.mat4Rotate(glsl.vec3{1.0, 0.3, 0.5}, glsl.radians(angle))
+		// 	shader_set_mat4(&shadedShader, "model", model)
+		// 	gl.DrawArrays(gl.TRIANGLES, 0, 36)
+		// }
 
 		glfw.SwapBuffers(window)
 		glfw.PollEvents()

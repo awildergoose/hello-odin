@@ -6,7 +6,7 @@ SCREEN_WIDTH: i32 = 800
 SCREEN_HEIGHT: i32 = 600
 WINDOW_TITLE: cstring = "Learn OpenGL"
 
-vertices := [?]Vertex {
+testVertices := [?]Vertex {
 	Vertex{glsl.vec3{-0.5, -0.5, -0.5}, glsl.vec3{0.0, 0.0, -1.0}, glsl.vec2{0.0, 0.0}},
 	Vertex{glsl.vec3{0.5, -0.5, -0.5}, glsl.vec3{0.0, 0.0, -1.0}, glsl.vec2{1.0, 0.0}},
 	Vertex{glsl.vec3{0.5, 0.5, -0.5}, glsl.vec3{0.0, 0.0, -1.0}, glsl.vec2{1.0, 1.0}},
