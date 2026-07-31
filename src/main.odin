@@ -248,7 +248,6 @@ main :: proc() {
 	shader_set_int(&lightingShader, "material.diffuse", 0)
 	shader_set_int(&lightingShader, "material.specular", 1)
 
-
 	append(
 		&state.directionalLights,
 		make_directional_light(
@@ -332,9 +331,16 @@ main :: proc() {
 	defer delete(state.spotLights)
 	defer delete(state.pointLights)
 
+	// this can probably fit a lot
+	std430 := make_std430(32768)
+	defer std430_clear(&std430)
+
 	for !glfw.WindowShouldClose(window) {
 		// free everything temporary
 		free_all(context.temp_allocator)
+
+		// clear the std430 builder buffer
+		std430_clear(&std430)
 
 		// update dt
 		currentFrame := cast(f32)glfw.GetTime()
@@ -370,32 +376,48 @@ main :: proc() {
 		shader_set_uint(&lightingShader, "pCount", cast(u32)len(&state.pointLights))
 		shader_set_uint(&lightingShader, "sCount", cast(u32)len(&state.spotLights))
 
-		state.spotLights[mySpotLight].position = vec3_to_vec4(state.camera.pos)
-		state.spotLights[mySpotLight].direction = vec3_to_vec4(state.camera.front)
+		state.spotLights[mySpotLight].position = state.camera.pos
+		state.spotLights[mySpotLight].direction = state.camera.front
+
+		for &light in state.directionalLights {
+			encode_directional_light(&std430, &light)
+		}
 
 		gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, directionalSSBO)
 		gl.BufferData(
 			gl.SHADER_STORAGE_BUFFER,
-			len(state.directionalLights) * size_of(DirectionalLight),
-			raw_data(state.directionalLights),
+			std430.offset,
+			raw_data(std430.data[:std430.offset]),
 			gl.DYNAMIC_DRAW,
 		)
 		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 1, directionalSSBO)
 
+		std430_clear(&std430)
+
+		for &light in state.pointLights {
+			encode_point_light(&std430, &light)
+		}
+
 		gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, pointSSBO)
 		gl.BufferData(
 			gl.SHADER_STORAGE_BUFFER,
-			len(state.pointLights) * size_of(PointLight),
-			raw_data(state.pointLights),
+			std430.offset,
+			raw_data(std430.data[:std430.offset]),
 			gl.DYNAMIC_DRAW,
 		)
 		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 2, pointSSBO)
 
+		std430_clear(&std430)
+
+		for &light in state.spotLights {
+			encode_spot_light(&std430, &light)
+		}
+
 		gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, spotSSBO)
 		gl.BufferData(
 			gl.SHADER_STORAGE_BUFFER,
-			len(state.spotLights) * size_of(SpotLight),
-			raw_data(state.spotLights),
+			std430.offset,
+			raw_data(std430.data[:std430.offset]),
 			gl.DYNAMIC_DRAW,
 		)
 		gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 3, spotSSBO)

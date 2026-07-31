@@ -3,9 +3,9 @@ package main
 import "core:math/linalg/glsl"
 
 AbstractLight :: struct {
-	ambient:  glsl.vec4,
-	diffuse:  glsl.vec4,
-	specular: glsl.vec4,
+	ambient:  glsl.vec3,
+	diffuse:  glsl.vec3,
+	specular: glsl.vec3,
 }
 
 AttentuatedLight :: struct {
@@ -16,20 +16,20 @@ AttentuatedLight :: struct {
 
 DirectionalLight :: struct {
 	using base: AbstractLight,
-	direction:  glsl.vec4,
+	direction:  glsl.vec3,
 }
 
 PointLight :: struct {
 	using base:         AbstractLight,
 	using attentuation: AttentuatedLight,
-	position:           glsl.vec4,
+	position:           glsl.vec3,
 }
 
 SpotLight :: struct {
 	using base:         AbstractLight,
 	using attentuation: AttentuatedLight,
-	position:           glsl.vec4,
-	direction:          glsl.vec4,
+	position:           glsl.vec3,
+	direction:          glsl.vec3,
 	cutOff:             f32,
 	outerCutOff:        f32,
 }
@@ -45,10 +45,10 @@ make_directional_light :: proc(
 	direction: glsl.vec3,
 ) -> DirectionalLight {
 	return DirectionalLight {
-		ambient = vec3_to_vec4(ambient),
-		diffuse = vec3_to_vec4(diffuse),
-		specular = vec3_to_vec4(specular),
-		direction = vec3_to_vec4(direction),
+		ambient = ambient,
+		diffuse = diffuse,
+		specular = specular,
+		direction = direction,
 	}
 }
 
@@ -62,13 +62,13 @@ make_point_light :: proc(
 	quadratic: f32,
 ) -> PointLight {
 	return PointLight {
-		ambient = vec3_to_vec4(ambient),
-		diffuse = vec3_to_vec4(diffuse),
-		specular = vec3_to_vec4(specular),
+		ambient = ambient,
+		diffuse = diffuse,
+		specular = specular,
 		constant = constant,
 		linear = linear,
 		quadratic = quadratic,
-		position = vec3_to_vec4(position),
+		position = position,
 	}
 }
 
@@ -85,15 +85,50 @@ make_spot_light :: proc(
 	outerCutOff: f32,
 ) -> SpotLight {
 	return SpotLight {
-		ambient = vec3_to_vec4(ambient),
-		diffuse = vec3_to_vec4(diffuse),
-		specular = vec3_to_vec4(specular),
+		ambient = ambient,
+		diffuse = diffuse,
+		specular = specular,
 		constant = constant,
 		linear = linear,
 		quadratic = quadratic,
-		position = vec3_to_vec4(position),
-		direction = vec3_to_vec4(direction),
+		position = position,
+		direction = direction,
 		cutOff = cutOff,
 		outerCutOff = outerCutOff,
 	}
+}
+
+encode_directional_light :: proc(b: ^Std430Builder, l: ^DirectionalLight) {
+	std430_write_vec3(b, l.ambient)
+	std430_write_vec3(b, l.diffuse)
+	std430_write_vec3(b, l.specular)
+
+	std430_write_vec3(b, l.direction)
+}
+
+encode_point_light :: proc(b: ^Std430Builder, l: ^PointLight) {
+	std430_write_vec3(b, l.ambient)
+	std430_write_vec3(b, l.diffuse)
+	std430_write_vec3(b, l.specular)
+
+	std430_write_f32(b, l.constant)
+	std430_write_f32(b, l.linear)
+	std430_write_f32(b, l.quadratic)
+
+	std430_write_vec3(b, l.position)
+}
+
+encode_spot_light :: proc(b: ^Std430Builder, l: ^SpotLight) {
+	std430_write_vec3(b, l.ambient)
+	std430_write_vec3(b, l.diffuse)
+	std430_write_vec3(b, l.specular)
+
+	std430_write_f32(b, l.constant)
+	std430_write_f32(b, l.linear)
+	std430_write_f32(b, l.quadratic)
+
+	std430_write_vec3(b, l.position)
+	std430_write_vec3(b, l.direction)
+	std430_write_f32(b, l.cutOff)
+	std430_write_f32(b, l.outerCutOff)
 }
