@@ -371,6 +371,7 @@ main :: proc() {
 
 		shader_set_vec3(&lightingShader, "viewPos", state.camera.pos)
 		shader_set_float(&lightingShader, "material.shininess", 32.0)
+		shader_set_float(&lightingShader, "time", currentFrame)
 
 		shader_set_uint(&lightingShader, "dCount", cast(u32)len(&state.directionalLights))
 		shader_set_uint(&lightingShader, "pCount", cast(u32)len(&state.pointLights))

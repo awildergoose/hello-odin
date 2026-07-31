@@ -47,6 +47,7 @@ in vec3 FragPos;
 in vec3 Normal;
 in vec2 TexCoords;
 
+uniform float time;
 uniform vec3 viewPos;
 uniform Material material;
 
