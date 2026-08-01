@@ -228,7 +228,7 @@ main :: proc() {
 		&state.spotLights,
 		make_spot_light(
 			state.camera.pos,
-			glsl.vec3(0.0),
+			glsl.vec3(0.3),
 			glsl.vec3(1.0),
 			glsl.vec3(1.0),
 			1.0,
